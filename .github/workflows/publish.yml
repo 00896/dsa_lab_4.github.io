@@ -41,6 +41,8 @@ jobs:
             cd ghpages
             git checkout --orphan gh-pages
             git rm -rf .
+            git config user.email "github-actions@github.com"
+            git config user.name "GitHub Actions"
             git commit --allow-empty -m "Init gh-pages"
             git push "https://x-access-token:${TOKEN}@github.com/${REPO}.git" gh-pages
             cd ..
@@ -109,8 +111,8 @@ jobs:
         run: |
           set -e
           cd ghpages
-          git config user.name "github-actions[00896]"
-          git config user.email "github-actions[00896]"
+          git config user.email "github-actions@github.com"
+          git config user.name "GitHub Actions"
           git add -A
           git commit -m "Публикация сайта ${{ github.event.release.tag_name }}" || echo "Нет изменений для коммита"
           git push "https://x-access-token:${TOKEN}@github.com/${REPO}.git" HEAD:gh-pages
