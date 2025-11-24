@@ -32,16 +32,17 @@ jobs:
         run: |
           set -e
           echo "Cloning gh-pages branch (or creating it) into ./ghpages"
-          # Попробуем клонировать ветку gh-pages
           if git ls-remote --exit-code origin gh-pages; then
+            # если существует — просто клонируем
             git clone --branch gh-pages "https://x-access-token:${TOKEN}@github.com/${REPO}.git" ghpages
           else
-            # Если ветка не существует - инициализируем пустой репозиторий и создадим ветку gh-pages
+            # создаём новую ветку gh-pages
             git clone "https://x-access-token:${TOKEN}@github.com/${REPO}.git" ghpages
             cd ghpages
             git checkout --orphan gh-pages
             git rm -rf .
-            # оставим README, затем вернёмся
+            git commit --allow-empty -m "Init gh-pages"
+            git push "https://x-access-token:${TOKEN}@github.com/${REPO}.git" gh-pages
             cd ..
           fi
 
