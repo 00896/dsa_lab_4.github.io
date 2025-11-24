@@ -94,7 +94,6 @@ jobs:
             #закрываем HTML-файл
             cat >> index.html <<'HTML'
               </ul>
-              <p>Each version is available under: /dsa_lab_4/v{tag}/</p>
             </body>
             </html>
             HTML
