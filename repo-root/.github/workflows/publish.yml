@@ -1,0 +1,115 @@
+name: Publish site on release
+
+# Срабатывает при публикации релиза (Release -> Published)
+on:
+  release:
+    types: [published]
+
+# Нужно давать права на запись в contents, чтобы workflow мог пушить в gh-pages
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Информация о релизе
+        run: |
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Release tag: ${{ github.event.release.tag_name }}"
+          echo "Release name: ${{ github.event.release.name }}"
+          echo "Published by: ${{ github.event.release.author.login }}"
+
+      - name: Prepare gh-pages clone (or create branch)
+        env:
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          echo "Cloning gh-pages branch (or creating it) into ./ghpages"
+          # Попробуем клонировать ветку gh-pages
+          if git ls-remote --exit-code origin gh-pages; then
+            git clone --branch gh-pages "https://x-access-token:${TOKEN}@github.com/${REPO}.git" ghpages
+          else
+            # Если ветка не существует - инициализируем пустой репозиторий и создадим ветку gh-pages
+            git clone "https://x-access-token:${TOKEN}@github.com/${REPO}.git" ghpages
+            cd ghpages
+            git checkout --orphan gh-pages
+            git rm -rf .
+            # оставим README, затем вернёмся
+            cd ..
+          fi
+
+      - name: Копирование файлов сайта в каталог версй
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -e
+          mkdir -p ghpages
+          # очистим или создадим целевую директорию для версии
+          TARGET_DIR="ghpages/v${TAG}"
+          rm -rf "${TARGET_DIR}"
+          mkdir -p "${TARGET_DIR}"
+          # Копируем все нужные файлы (ru/, en/, корневой index.html и пр.)
+          cp -R index.html ru en "${TARGET_DIR}/" || true
+          # Если у тебя дополнительные файлы (css, images) — добавь их в cp
+          echo "Files copied to ${TARGET_DIR}:"
+          ls -la "${TARGET_DIR}"
+
+      - name: Regenerate versions index (root index on gh-pages)
+        env:
+            TAG: ${{ github.event.release.tag_name }}
+        run: |
+            set -e
+            cd ghpages || exit 1
+
+            # Создаём index.html в корне ветки gh-pages
+            cat > index.html <<'HTML'
+            <!doctype html>
+            <html lang="ru">
+            <head>
+                <meta charset="utf-8">
+                <title>Доступные версии</title>
+            </head>
+            <body>
+                <h1>Доступные версии сайта</h1>
+                <ul>
+            HTML
+
+            #перечисляем каталоги вида v*
+            for d in v*; do
+            if [ -d "$d" ]; then
+                echo "    <li><a href=\"./${d}/\">${d}</a></li>" >> index.html
+            fi
+            done
+
+            #закрываем HTML-файл
+            cat >> index.html <<'HTML'
+              </ul>
+              <p>Each version is available under: /dsa_lab_4/v{tag}/</p>
+            </body>
+            </html>
+            HTML
+
+
+            # добавим (если нужно) другой файл index.html
+            echo "Generated gh-pages/index.html"
+            ls -la
+
+      - name: Коммит и отправка изменений в ветку gh-pages
+        env:
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cd ghpages
+          git config user.name "github-actions[00896]"
+          git config user.email "github-actions[00896]"
+          git add -A
+          git commit -m "Публикация сайта ${{ github.event.release.tag_name }}" || echo "Нет изменений для коммита"
+          git push "https://x-access-token:${TOKEN}@github.com/${REPO}.git" HEAD:gh-pages
